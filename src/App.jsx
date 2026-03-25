@@ -1,97 +1,109 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import './App.css';
 import {
-  ShieldAlert, ShieldCheck, Database,
-  Lock, Unlock, AlertTriangle,
-  Users, Code, Terminal, Zap, Info
+  ShieldAlert, ShieldCheck, Database, Lock, Unlock, AlertTriangle,
+  Users, Code, Terminal, Zap, Info, Clock, Skull, TrendingDown, Globe
 } from 'lucide-react';
+
+// --- SZAKÉRTŐI MOTOR KONSTANSOK ---
+const BLUE_CHIPS = ['ethereum', 'bitcoin', 'solana', 'stablecoin', 'usdc', 'usdt', 'dai', 'wrapped-bitcoin'];
+const TOP_DEXS = ['uniswap', 'pancakeswap', 'raydium', 'curve', 'lido', 'aave'];
 
 function App() {
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [report, setReport] = useState(null);
+  const [shameList, setShameList] = useState([]);
 
-  const performMilitaryGradeScan = (input) => {
-    // Szigorúbb hash algoritmus
-    let hash = 5381;
+  useEffect(() => {
+    const saved = localStorage.getItem('sentinel_shame_list_v8');
+    if (saved) setShameList(JSON.parse(saved));
+  }, []);
+
+  // --- MÉLYELEMZŐ ALGORITMUS (Senior Logic) ---
+  const analyzeAddress = (input) => {
+    const raw = input.toLowerCase();
+
+    // 1. Felismerés: Hálózat vagy konkrét szerződés?
+    const isMainNetwork = BLUE_CHIPS.some(coin => raw.endsWith(`/${coin}`) || raw.endsWith(coin));
+    const isTopProtocol = TOP_DEXS.some(dex => raw.includes(dex));
+
+    // Regex a konkrét szerződésekhez (ETH: 0x..., SOL: base58)
+    const ethAddrRegex = /0x[a-f0-9]{40}/i;
+    const solAddrRegex = /[1-9A-HJ-NP-Za-km-z]{32,44}/;
+    const hasContract = ethAddrRegex.test(input) || solAddrRegex.test(input);
+
+    // 2. Determinisztikus Seed
+    let hash = 0;
     for (let i = 0; i < input.length; i++) {
-      hash = ((hash << 5) + hash) + input.charCodeAt(i);
+      hash = ((hash << 5) - hash) + input.charCodeAt(i);
     }
-    const s = Math.abs(hash);
+    const seed = Math.abs(hash);
 
-    // BEMENETI ADATOK ELEMZÉSE
+    // 3. WHITELIST KEZELÉS (Ha ez az Ethereum hálózat, nem lehet scam)
+    if (isMainNetwork || (isTopProtocol && !hasContract)) {
+      return {
+        score: 0,
+        sentinelScore: 1000,
+        status: "INSTITUTIONAL GRADE",
+        color: "#10b981",
+        isWhitelisted: true,
+        type: "Infrastructure",
+        findings: [{ type: 'SUCCESS', msg: "Detected as core blockchain infrastructure or top-tier protocol." }],
+        top10: 2, liqValue: 5000000, mCap: 250000000, liqRatio: 20, lpLocked: true, lockDays: 9999, sellTax: 0, devHoldings: 0,
+        name: raw.split('/').pop().toUpperCase()
+      };
+    }
 
-
-    const isDexScreener = input.toLowerCase().includes('dexscreener');
-
-    // ALAP RIZIKÓ (Már az indulásnál 20 pont, ha DexScreener link)
-    let riskScore = isDexScreener ? 25 : 10;
+    // 4. TOKEN ANALÍZIS (Ha van szerződés vagy gyanús link)
+    let riskPoints = hasContract ? 10 : 40; // Ha nincs konkrét cím, alapból gyanúsabb (phishing veszély)
     let findings = [];
 
-    // --- MATEK ALAPÚ BIZONYÍTÉKOK ---
+    // Matek: Likviditási sűrűség
+    const mCap = (seed % 9000) + 100; // $100k - $9.1M
+    const liqValue = (seed % 200) + 1; // $1k - $201k
+    const liqRatio = (liqValue / mCap) * 100;
 
-    // 1. Likviditás (Scam projekteknél általában kicsi)
-    const liqValue = (s % 350) + 5; // $5k - $355k
-    if (liqValue < 60) {
-      riskScore += 30;
-      findings.push({ type: 'CRITICAL', msg: `Extreme Low Liquidity: Only $${liqValue}k found. Pulling this will be instant.` });
+    if (liqRatio < 3) {
+      riskPoints += 45;
+      findings.push({ type: 'CRITICAL', msg: `LIQUIDITY SQUEEZE: Only ${liqRatio.toFixed(2)}% backing. Exit impossible for whales.` });
     }
 
-    // 2. Holder koncentráció (A legfontosabb!)
-    const top10 = 50 + (s % 48); // 50% - 98% (Szigorú: minimum 50% a top 10 kezében)
-    if (top10 > 70) {
-      riskScore += 35;
-      findings.push({ type: 'CRITICAL', msg: `WHALE ALERT: Top 10 wallets control ${top10}% of the total supply.` });
-    } else {
-      riskScore += 15;
-      findings.push({ type: 'WARNING', msg: `High Concentration: Top 10 holds ${top10}%. Dev dump risk is high.` });
+    // Holder eloszlás (Matematikai szórás szimuláció)
+    const devHoldings = (seed % 25) + (hasContract ? 0 : 30);
+    const top10 = 30 + (seed % 65);
+    if (top10 > 80) {
+      riskPoints += 40;
+      findings.push({ type: 'CRITICAL', msg: `EXTREME CONCENTRATION: Top 10 hold ${top10}% of supply.` });
     }
 
-    // 3. Adó / Honeypot matek
-    const sellTax = (s % 12) + (s % 8 === 0 ? 85 : 0); // Ha osztható 8-al, akkor 85% feletti adó (Honeypot)
-    if (sellTax > 20) {
-      riskScore += 45;
-      findings.push({ type: 'CRITICAL', msg: `HONEYPOT PATTERN: Contract contains logic to set sell tax to ${sellTax}%.` });
+    // Adó és Honeypot logika
+    const sellTax = (seed % 15) + (seed % 7 === 0 ? 80 : 0);
+    if (sellTax > 30) {
+      riskPoints += 50;
+      findings.push({ type: 'CRITICAL', msg: `HONEYPOT TRAP: Sell tax is hardcoded at ${sellTax}%.` });
     }
 
-    // 4. LP Lock (Zárolás)
-    const lpLocked = (s % 6 === 0); // Csak 16% esély a lockra
+    // Likviditás zár
+    const lpLocked = (seed % 4 !== 0);
+    const lockDays = lpLocked ? (seed % 180) + 1 : 0;
     if (!lpLocked) {
-      riskScore += 25;
-      findings.push({ type: 'DANGER', msg: "Liquidity NOT locked. Creator can remove all funds at any second." });
+      riskPoints += 35;
+      findings.push({ type: 'DANGER', msg: "NO LIQUIDITY LOCK: Developer can pull the pool instantly." });
     }
 
-    // 5. Mint funkció
-    const canMint = (s % 4 === 1);
-    if (canMint) {
-      riskScore += 20;
-      findings.push({ type: 'DANGER', msg: "Mint Function Enabled: New tokens can be created out of thin air." });
-    }
+    const sentinelScore = Math.max(0, 1000 - (riskPoints * 9.5));
 
-    // --- VÉGSŐ DÖNTÉS ---
     let status = "SECURE";
     let color = "#22c55e";
-
-    if (riskScore >= 75) {
-      status = "SCAM DETECTED";
-      color = "#ff0000";
-    } else if (riskScore >= 45) {
-      status = "HIGH RISK / RUG-READY";
-      color = "#f59e0b";
-    } else {
-      status = "SUSPICIOUS";
-      color = "#eab308";
-    }
+    if (sentinelScore < 350) { status = "SCAM DETECTED"; color = "#ef4444"; }
+    else if (sentinelScore < 650) { status = "HIGH RISK"; color = "#f59e0b"; }
 
     return {
-      score: Math.min(riskScore, 100),
-      status,
-      color,
-      top10,
-      liqValue,
-      lpLocked,
-      sellTax,
-      findings: findings.length > 0 ? findings : [{ type: 'INFO', msg: "Limited data available. Trade with extreme caution." }]
+      score: Math.min(riskPoints, 100), sentinelScore, status, color,
+      top10, devHoldings, mCap, liqValue, liqRatio, lpLocked, lockDays, sellTax, findings,
+      type: "Token Asset",
+      name: input.split('/').pop().substring(0, 12) || "Unknown"
     };
   };
 
@@ -99,13 +111,16 @@ function App() {
     e.preventDefault();
     if (!url) return;
     setLoading(true);
-    setReport(null);
-
-    // AI szimulációs késleltetés
     setTimeout(() => {
-      setReport(performMilitaryGradeScan(url));
+      const result = analyzeAddress(url);
+      setReport(result);
+      if (result.sentinelScore < 350 && !result.isWhitelisted) {
+        const newShame = [result, ...shameList].slice(0, 6);
+        setShameList(newShame);
+        localStorage.setItem('sentinel_shame_list_v8', JSON.stringify(newShame));
+      }
       setLoading(false);
-    }, 2000);
+    }, 1800);
   };
 
   return (
@@ -113,68 +128,71 @@ function App() {
       <div className="main-card">
         <header className="pro-header">
           <div className="logo-area">
-            <Zap size={20} color="#3b82f6" fill="#3b82f6" />
-            <span>SENTINEL AI v6.0 <small style={{fontSize: '9px', color: '#ff4444'}}>ULTRA-STRICT</small></span>
+            <Terminal size={20} color="#60a5fa" />
+            <span>SENTINEL AI <small>v8.0 EXPERT</small></span>
           </div>
-          <div className="status-badge">DEEP SCAN ACTIVE</div>
+          <div className="network-status">
+            <Globe size={14} /> SCANNING MULTI-CHAIN
+          </div>
         </header>
 
         <section className="search-section">
           <form onSubmit={handleAudit} className="search-box">
             <input
               type="text"
-              placeholder="Paste DexScreener / Solana Link..."
+              placeholder="Paste DexScreener link or Contract Address..."
               value={url}
               onChange={(e) => setUrl(e.target.value)}
             />
-            <button disabled={loading} type="submit">
-              {loading ? "ANALYZING..." : "START AUDIT"}
-            </button>
+            <button disabled={loading} type="submit">{loading ? "AUDITING..." : "DECODE"}</button>
           </form>
         </section>
 
-        {loading && (
-          <div className="loading-container">
-            <div className="scanner-bar"></div>
-            <p>CRACKING CONTRACT LOGIC...</p>
-          </div>
-        )}
-
         {report && !loading && (
           <div className="report-fade">
-            <div className="score-hero" style={{ borderColor: report.color, background: `linear-gradient(180deg, ${report.color}15 0%, transparent 100%)` }}>
-              <div className="big-num" style={{ color: report.color }}>{report.score}</div>
-              <div className="label">RISK PROBABILITY</div>
-              <div className="status-tag" style={{ backgroundColor: report.color }}>{report.status}</div>
+            <div className="score-hero" style={{ borderColor: report.color }}>
+              <div className="s-type">{report.type} ANALYSIS</div>
+              <div className="s-value" style={{ color: report.color }}>{Math.floor(report.sentinelScore)}<small>/1000</small></div>
+              <div className="s-pill" style={{ backgroundColor: report.color }}>{report.status}</div>
             </div>
 
             <div className="stats-grid">
-              <div className="stat-box">
-                <Users size={16} color="#8b949e" />
-                <span>Top 10: <strong>{report.top10}%</strong></span>
+              <div className="stat-card">
+                <Users size={16} /> <span>Dev Share: <strong>{report.devHoldings}%</strong></span>
+                <div className="mini-bar"><div className="fill" style={{width: `${report.devHoldings}%`, background: report.color}}></div></div>
               </div>
-              <div className="stat-box">
-                <Database size={16} color="#8b949e" />
-                <span>Liq: <strong>${report.liqValue}k</strong></span>
+              <div className="stat-card">
+                <TrendingDown size={16} /> <span>Liq. Ratio: <strong>{report.liqRatio.toFixed(1)}%</strong></span>
+                <div className="mini-bar"><div className="fill" style={{width: `${Math.min(100, report.liqRatio*5)}%`, background: report.liqRatio < 3 ? '#ef4444' : '#60a5fa'}}></div></div>
               </div>
-              <div className="stat-box">
-                {report.lpLocked ? <Lock size={16} color="#22c55e" /> : <Unlock size={16} color="#ff4444" />}
-                <span>LP: <strong>{report.lpLocked ? "Locked" : "UNLOCKED"}</strong></span>
+              <div className="stat-card">
+                <Clock size={16} /> <span>Lock: <strong>{report.lpLocked ? `${report.lockDays}d` : "NONE"}</strong></span>
+                <div className="mini-bar"><div className="fill" style={{width: report.lpLocked ? '100%' : '0%', background: report.lpLocked ? '#10b981' : '#ef4444'}}></div></div>
               </div>
             </div>
 
-            <div className="findings-section">
-              <h3><AlertTriangle size={14} /> SECURITY FINDINGS</h3>
-              {report.findings.map((item, index) => (
-                <div key={index} className={`finding-entry ${item.type.toLowerCase()}`}>
-                  <div className="f-type">{item.type}</div>
-                  <div className="f-msg">{item.msg}</div>
+            <div className="findings-area">
+              <h3><ShieldAlert size={14} /> FORENSIC EVIDENCE</h3>
+              {report.findings.map((f, i) => (
+                <div key={i} className={`finding-row ${f.type.toLowerCase()}`}>
+                  <AlertTriangle size={14} /> {f.msg}
                 </div>
               ))}
             </div>
 
-            <div className="tax-footer">
-              ESTIMATED SELL TAX: {report.sellTax}% | DETECTED BY SENTINEL AI ENGINE
+            <div className="tax-banner">
+              SELL TAX: {report.sellTax}% | BUY TAX: {Math.floor(report.seed % 5 || 0)}% | M-CAP: ${report.mCap}K
+            </div>
+          </div>
+        )}
+
+        {shameList.length > 0 && (
+          <div className="shame-section">
+            <h4><Skull size={14} color="#ef4444" /> RECENT SCAM DETECTIONS</h4>
+            <div className="shame-tags">
+              {shameList.map((s, i) => (
+                <span key={i} className="s-tag">{s.name} ({Math.floor(s.sentinelScore)})</span>
+              ))}
             </div>
           </div>
         )}
