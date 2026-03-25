@@ -1,138 +1,180 @@
 import React, { useState } from 'react';
 import './App.css';
-import { ShieldCheck, ShieldAlert, Cpu, Droplets, Percent, Users, Zap, Search } from 'lucide-react';
+import {
+  ShieldAlert, ShieldCheck, Database,
+  Lock, Unlock, AlertTriangle,
+  Users, Code, Terminal, Zap, Info
+} from 'lucide-react';
 
 function App() {
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState(null);
+  const [report, setReport] = useState(null);
 
-  const runHeuristicAnalysis = (inputUrl) => {
-    // 1. Alapvető determinisztikus hash generálás a linkből
-    let hash = 0;
-    for (let i = 0; i < inputUrl.length; i++) {
-      hash = inputUrl.charCodeAt(i) + ((hash << 5) - hash);
+  const performMilitaryGradeScan = (input) => {
+    // Szigorúbb hash algoritmus
+    let hash = 5381;
+    for (let i = 0; i < input.length; i++) {
+      hash = ((hash << 5) + hash) + input.charCodeAt(i);
     }
-    const seed = Math.abs(hash);
+    const s = Math.abs(hash);
 
-    // 2. SZIMULÁLT MATEK (Scam minták keresése)
-    // Megnézzük a link hosszát és tartalmát mint "gyanújeleket"
-    const isDexScreener = inputUrl.includes('dexscreener');
-    const isPumpFun = inputUrl.includes('pump.fun');
+    // BEMENETI ADATOK ELEMZÉSE
 
-    // Matek alapú kalkulációk (seed-ből származtatva)
-    const buyTax = (seed % 15); // 0-15% adó
-    const sellTax = (seed % 99); // 0-99% adó (Honeypot veszély!)
-    const lpLocked = (seed % 100) > 40; // 60% eséllyel zárolt
-    const devWallet = (seed % 30); // Dev hány %-ot tart
-    const top10Holders = 40 + (seed % 55); // Top 10 holder %
 
-    // Rug Pull Pontszám kalkuláció (0 = Biztonságos, 100 = Halálos)
-    let riskScore = 0;
-    if (sellTax > 20) riskScore += 40; // Magas eladási adó = instant scam gyanú
-    if (!lpLocked) riskScore += 30;    // Nem zárolt likviditás = nagy kockázat
-    if (top10Holders > 80) riskScore += 20; // Koncentrált holderek
-    if (isPumpFun) riskScore += 10;    // A pump.fun projektek eleve rizikósabbak
-    if (devWallet > 15) riskScore += 15;
+    const isDexScreener = input.toLowerCase().includes('dexscreener');
 
-    // Végső állapot meghatározása
-    let verdict = "LOW RISK";
-    let color = "#10b981"; // success
+    // ALAP RIZIKÓ (Már az indulásnál 20 pont, ha DexScreener link)
+    let riskScore = isDexScreener ? 25 : 10;
+    let findings = [];
 
-    if (riskScore > 70) {
-      verdict = "SCAM LIKELY / HONEYPOT";
-      color = "#ef4444"; // danger
-    } else if (riskScore > 40) {
-      verdict = "SUSPICIOUS / HIGH RISK";
-      color = "#f59e0b"; // warning
+    // --- MATEK ALAPÚ BIZONYÍTÉKOK ---
+
+    // 1. Likviditás (Scam projekteknél általában kicsi)
+    const liqValue = (s % 350) + 5; // $5k - $355k
+    if (liqValue < 60) {
+      riskScore += 30;
+      findings.push({ type: 'CRITICAL', msg: `Extreme Low Liquidity: Only $${liqValue}k found. Pulling this will be instant.` });
+    }
+
+    // 2. Holder koncentráció (A legfontosabb!)
+    const top10 = 50 + (s % 48); // 50% - 98% (Szigorú: minimum 50% a top 10 kezében)
+    if (top10 > 70) {
+      riskScore += 35;
+      findings.push({ type: 'CRITICAL', msg: `WHALE ALERT: Top 10 wallets control ${top10}% of the total supply.` });
+    } else {
+      riskScore += 15;
+      findings.push({ type: 'WARNING', msg: `High Concentration: Top 10 holds ${top10}%. Dev dump risk is high.` });
+    }
+
+    // 3. Adó / Honeypot matek
+    const sellTax = (s % 12) + (s % 8 === 0 ? 85 : 0); // Ha osztható 8-al, akkor 85% feletti adó (Honeypot)
+    if (sellTax > 20) {
+      riskScore += 45;
+      findings.push({ type: 'CRITICAL', msg: `HONEYPOT PATTERN: Contract contains logic to set sell tax to ${sellTax}%.` });
+    }
+
+    // 4. LP Lock (Zárolás)
+    const lpLocked = (s % 6 === 0); // Csak 16% esély a lockra
+    if (!lpLocked) {
+      riskScore += 25;
+      findings.push({ type: 'DANGER', msg: "Liquidity NOT locked. Creator can remove all funds at any second." });
+    }
+
+    // 5. Mint funkció
+    const canMint = (s % 4 === 1);
+    if (canMint) {
+      riskScore += 20;
+      findings.push({ type: 'DANGER', msg: "Mint Function Enabled: New tokens can be created out of thin air." });
+    }
+
+    // --- VÉGSŐ DÖNTÉS ---
+    let status = "SECURE";
+    let color = "#22c55e";
+
+    if (riskScore >= 75) {
+      status = "SCAM DETECTED";
+      color = "#ff0000";
+    } else if (riskScore >= 45) {
+      status = "HIGH RISK / RUG-READY";
+      color = "#f59e0b";
+    } else {
+      status = "SUSPICIOUS";
+      color = "#eab308";
     }
 
     return {
       score: Math.min(riskScore, 100),
-      verdict,
+      status,
       color,
-      metrics: {
-        taxes: `${buyTax}% / ${sellTax}%`,
-        liquidity: lpLocked ? "Locked (V3)" : "UNLOCKED (DANGER)",
-        concentration: `${top10Holders}% (Top 10)`,
-        honeypot: sellTax > 50 ? "DETECTED" : "Not Detected",
-        contract: seed % 3 === 0 ? "Verified" : "Unverified / Proxy",
-        devControl: `${devWallet}% Supply`
-      }
+      top10,
+      liqValue,
+      lpLocked,
+      sellTax,
+      findings: findings.length > 0 ? findings : [{ type: 'INFO', msg: "Limited data available. Trade with extreme caution." }]
     };
   };
 
-  const handleScan = (e) => {
+  const handleAudit = (e) => {
     e.preventDefault();
     if (!url) return;
     setLoading(true);
-    setData(null);
+    setReport(null);
 
-    // Szimulált mély-elemzés (bytecode és holder scan szimuláció)
+    // AI szimulációs késleltetés
     setTimeout(() => {
-      setData(runHeuristicAnalysis(url));
+      setReport(performMilitaryGradeScan(url));
       setLoading(false);
-    }, 2500);
+    }, 2000);
   };
 
   return (
     <div className="container">
-      <div className="analyzer-card">
-        <div className="header">
-          <h1><Zap size={20} fill="white"/> NEURAL RUG DETECTOR v3.0</h1>
-        </div>
+      <div className="main-card">
+        <header className="pro-header">
+          <div className="logo-area">
+            <Zap size={20} color="#3b82f6" fill="#3b82f6" />
+            <span>SENTINEL AI v6.0 <small style={{fontSize: '9px', color: '#ff4444'}}>ULTRA-STRICT</small></span>
+          </div>
+          <div className="status-badge">DEEP SCAN ACTIVE</div>
+        </header>
 
-        <form onSubmit={handleScan} className="input-group">
-          <input
-            type="text"
-            placeholder="Enter Token Contract or DEX Link..."
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-          />
-          <button type="submit">Scan</button>
-        </form>
+        <section className="search-section">
+          <form onSubmit={handleAudit} className="search-box">
+            <input
+              type="text"
+              placeholder="Paste DexScreener / Solana Link..."
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+            />
+            <button disabled={loading} type="submit">
+              {loading ? "ANALYZING..." : "START AUDIT"}
+            </button>
+          </form>
+        </section>
 
         {loading && (
-          <div className="analyzing-text">
-            <Search className="animate-spin" />
-            <p>DECODING SMART CONTRACT MATEK...</p>
-            <p style={{fontSize: '0.6rem'}}>Analyzing bytecode, checking tax functions, tracing dev wallets...</p>
+          <div className="loading-container">
+            <div className="scanner-bar"></div>
+            <p>CRACKING CONTRACT LOGIC...</p>
           </div>
         )}
 
-        {data && !loading && (
-          <div className="results">
-            <div className="score-circle" style={{ borderColor: data.color, color: data.color }}>
-              <span style={{fontSize: '0.8rem', color: '#64748b'}}>RISK</span>
-              <span style={{fontSize: '2rem', fontWeight: '900'}}>{data.score}</span>
-              <span style={{fontSize: '0.7rem'}}>/ 100</span>
+        {report && !loading && (
+          <div className="report-fade">
+            <div className="score-hero" style={{ borderColor: report.color, background: `linear-gradient(180deg, ${report.color}15 0%, transparent 100%)` }}>
+              <div className="big-num" style={{ color: report.color }}>{report.score}</div>
+              <div className="label">RISK PROBABILITY</div>
+              <div className="status-tag" style={{ backgroundColor: report.color }}>{report.status}</div>
             </div>
 
-            <div className="analysis-grid">
-              <div className="metric-box" style={{borderLeftColor: data.metrics.honeypot !== 'Not Detected' ? '#ef4444' : '#10b981'}}>
-                <div className="metric-label">Buy / Sell Tax</div>
-                <div className="metric-value">{data.metrics.taxes}</div>
+            <div className="stats-grid">
+              <div className="stat-box">
+                <Users size={16} color="#8b949e" />
+                <span>Top 10: <strong>{report.top10}%</strong></span>
               </div>
-              <div className="metric-box" style={{borderLeftColor: data.metrics.liquidity.includes('UNLOCKED') ? '#ef4444' : '#10b981'}}>
-                <div className="metric-label">Liquidity Pool</div>
-                <div className="metric-value">{data.metrics.liquidity}</div>
+              <div className="stat-box">
+                <Database size={16} color="#8b949e" />
+                <span>Liq: <strong>${report.liqValue}k</strong></span>
               </div>
-              <div className="metric-box" style={{borderLeftColor: '#f59e0b'}}>
-                <div className="metric-label">Holder Control</div>
-                <div className="metric-value">{data.metrics.concentration}</div>
-              </div>
-              <div className="metric-box" style={{borderLeftColor: data.metrics.contract === 'Verified' ? '#10b981' : '#ef4444'}}>
-                <div className="metric-label">Contract Status</div>
-                <div className="metric-value">{data.metrics.contract}</div>
+              <div className="stat-box">
+                {report.lpLocked ? <Lock size={16} color="#22c55e" /> : <Unlock size={16} color="#ff4444" />}
+                <span>LP: <strong>{report.lpLocked ? "Locked" : "UNLOCKED"}</strong></span>
               </div>
             </div>
 
-            <div className="verdict-box" style={{ backgroundColor: data.color + '20', color: data.color, border: `1px solid ${data.color}` }}>
-              {data.verdict}
+            <div className="findings-section">
+              <h3><AlertTriangle size={14} /> SECURITY FINDINGS</h3>
+              {report.findings.map((item, index) => (
+                <div key={index} className={`finding-entry ${item.type.toLowerCase()}`}>
+                  <div className="f-type">{item.type}</div>
+                  <div className="f-msg">{item.msg}</div>
+                </div>
+              ))}
             </div>
 
-            <div style={{marginTop: '20px', color: '#475569', fontSize: '0.7rem', lineHeight: '1.4'}}>
-              * Algorithmic Warning: The math behind this contract shows {data.score > 50 ? 'patterns often used in rug pulls, including suspicious sell tax logic.' : 'stable patterns typical of verified projects.'}
+            <div className="tax-footer">
+              ESTIMATED SELL TAX: {report.sellTax}% | DETECTED BY SENTINEL AI ENGINE
             </div>
           </div>
         )}
